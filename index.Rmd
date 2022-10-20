@@ -42,6 +42,10 @@ Análisis de Variables Latentes
 
 </center>
 
+<center>
+<a href="https://doi.org/10.5281/zenodo.7226792"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.7226792.svg" alt="DOI"></a>
+</center>
+
 ------------------------------------------------------------------------
 
 Muchas veces queremos saber si algun conjunto de variables representa algun *concepto*, al cual se le denomina técnicamente *variable latente*. Las técnicas son variadas, pero aquí aplicaremos análisis factorial, el exploratorio y el confirmatorio para tratar de *reducir* varias variables en otra u otras más simples.
