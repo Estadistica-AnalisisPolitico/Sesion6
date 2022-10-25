@@ -338,7 +338,7 @@ library(magrittr)
 as.data.frame(resfa$scores)%>%head()
 ```
 
-Les daremos por nombre 'demos_efa' y 'desahu_efa' a esas dos columnas. Dado que tenemos el indice de democracia en la data original, comparémoslo con el recién calculado, via el *scatterplot* de la Figura \@ref(fig:scatterEFAdemo).
+Les daremos por nombre 'demos_efa' y 'desahu_efa' a esas dos columnas. Dado que tenemos el indice de democracia en la data original, comparémoslo con el recién calculado, via el *scatterplot* de la Figura \@ref(fig:scatterEFAdemo1).
 
 ```{r scatterEFAdemo1, warning=FALSE, message=FALSE,fig.cap="Comparando Indice de Democracia con el Score obtenido en EFA"}
 
@@ -425,9 +425,9 @@ idhdemo$demos_cfa_ok=scorescfa[,1]
 idhdemo$desahu_cfa_ok=scorescfa[,2]
 ```
 
-Veamos que tanto se parece el score obtenido via CFA con la punt
+Veamos que tanto se parece el score obtenido via CFA con la puntuación original en la Figura \@ref(fig:scatterCFAdemo).
 
-```{r}
+```{r scatterCFAdemo,fig.cap="Comparación Indice de Democracia con Score CFA con puntuación original"}
 ggplot(data=idhdemo,aes(x=Puntuacion,y=demos_cfa_ok)) + geom_point() + theme_minimal() + labs(x="Indice de Democracia (original)", y="Indice de Democracia CFA (cambiado)")
 
 ```
