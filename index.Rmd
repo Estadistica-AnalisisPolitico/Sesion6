@@ -192,13 +192,15 @@ demo[,c(2,9)]=lapply(demo[,c(2,9)],
 
 ## Merge
 
--   **Verificando qué falta en el campo clave**: El merge usa columnas comunes. Antes del merge definitivo hay que verificar si hay correcciones posible para que el merge no pierda tantas filas. Esto es lo que IDH tiene pero que DEMO no tendría:
+-   **Verificando qué falta en el campo clave**: El merge usa columnas comunes. Antes del merge definitivo hay que verificar si hay correcciones posible para que el merge no pierda tantas filas. 
+
+Una manera práctica para darnos cuenta que NO está coincidiendo en dos conjuntos es usar diferencia de conjuntos ^[Sí A y B son conjuntos, A−B serán los elementos que están en A pero que NO están en B, por ejemplo si A={1,2,3} y B={3,5}, entonces A−B={1,2}.]:
 
 ```{r}
 setdiff(demo$Pais,idh$Pais)
 ```
 
-Esto es lo que DEMO tiene pero que IDH no tendría:
+De igual manera:
 
 ```{r}
 setdiff(idh$Pais,demo$Pais)
