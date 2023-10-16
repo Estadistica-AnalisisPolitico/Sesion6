@@ -34,7 +34,7 @@ Profesor: <a href="http://www.pucp.edu.pe/profesor/jose-manuel-magallanes/" targ
 
 <h2>
 
-Análisis de Variables Latentes
+Análisis de Variables Latentes (I)
 
 </h2>
 
@@ -48,223 +48,314 @@ Análisis de Variables Latentes
 
 ------------------------------------------------------------------------
 
-Muchas veces queremos saber si algun conjunto de variables representa algun *concepto*, al cual se le denomina técnicamente *variable latente*. Las técnicas son variadas, pero aquí aplicaremos análisis factorial, el exploratorio y el confirmatorio para tratar de *reducir* varias variables en otra u otras más simples.
+Muchas veces queremos saber si algun conjunto de variables representa algun *concepto*, al cual se le denomina técnicamente *variable latente*. Las técnicas son variadas, pero en esta unidad veremos análisis factorial exploratorio, y en la próxima el confirmatorio para tratar de *reducir* varias variables en otra u otras más simples.
 
-# Preprocesamiento:
+En esta unidad  trabajaremos con la data de:
 
-Para esta sesión trabajaremos con la data de:
+-   [Índice de Desarrollo Humano (IDH)](https://hdr.undp.org/data-center/documentation-and-downloads)
 
--   [Índice de Desarrollo Humano](https://es.wikipedia.org/wiki/Anexo:Pa%C3%ADses_por_%C3%ADndice_de_desarrollo_humano)
+-   [Índice de Democracia del Economist (IDE)](https://en.wikipedia.org/wiki/The_Economist_Democracy_Index)
 
--   [Índice de Democracia](https://es.wikipedia.org/wiki/%C3%8Dndice_de_democracia)
+Este ejemplo usa dos índices calculados cada uno a partir de un conjunto de indicadores. Nuestro interés no está en los índices, sino en utilizar los indicadores para producir los indica pero usando las técnicas que veremos.
+
+
+
+# Pre Procesamiento
+
+Nosotros queremos juntar dos conjuntos de datos. Esto significa:
+
+1. Hay que juntar (_merge_) ambos conjuntos de datos. Para ello necesitamos que ambas datas tengan las mismas unidades de análisis (en una o más columnas), esas columnas se llaman las _claves_ (keys).
+
+2. El merge puede perder filas, pues una misma unidad de análisis puede haberse escrito de manera diferente en ambas datas. Eso requiere limpieza de data.
+
+3. Las datas viene de diferentes fuentes, y tipos de archivos, lo cual requiere subsetear y limpiar hasta que cada data solo tenga las filas apropiadas.
+
 
 ## Carga de datos
 
-Para esta etapa vamos a proceder a *scrapear* las dos páginas web, con la ayuda de la biblioteca *htmltab*. La descarga utilizará el *xpath* de la tabla de interés.
+El IDH está disponible como un archivo en Excel que descargaremos desde el link respectivo:
 
-```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
+```{r, message=FALSE}
 rm(list = ls())
+library(rio)
 
-library(htmltab)
+linkToFileIDH="https://hdr.undp.org/sites/default/files/2021-22_HDR/HDR21-22_Statistical_Annex_HDI_Table.xlsx"
 
-# links
-WhereIDH=list(page="https://es.wikipedia.org/wiki/Anexo:Pa%C3%ADses_por_%C3%ADndice_de_desarrollo_humano", 
-              xpath='//*[@id="mw-content-text"]/div[1]/table[4]/tbody')
-WhereDEMO=list(page="https://es.wikipedia.org/wiki/%C3%8Dndice_de_democracia",
-               xpath='//*[@id="mw-content-text"]/div[1]/div[4]/div/table/tbody')
-
-#carga
-idh  = htmltab(doc = WhereIDH$page, 
-               which  = WhereIDH$xpath,
-               encoding = "UTF-8")
-demo  = htmltab(doc = WhereDEMO$page, 
-               which  = WhereDEMO$xpath,
-               encoding = "UTF-8")
+# queda en objeto 'idh'
+idh=import(linkToFileIDH)
 ```
 
-## Limpieza
 
-Por lo general, la data scrapeada presenta diversas 'impurezas'. Veámos qué se necesita 'limpiar'.
+El IDE está en una tabla en Wikipedia, lo que requiere _scrapping_:
 
--   **Nombres de columnas**: Hay que tratar de tener nombres simples, sin espacios ni caracteres especiales. Si se desea mantener nombres descriptivos, puede hacerse uso de guiones bajos (underscores) o formato *CamelCase*.
+```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
+library(rvest)
 
-Los nombres de la data *idh* son muy largos, con caracteres especiales, en español, y muchos espacios en blancos.
+linkToWebIDE="https://en.wikipedia.org/wiki/The_Economist_Democracy_Index"
+xpathToTableIDE='//*[@id="mw-content-text"]/div[1]/table[6]'
+ide <- read_html(linkToWebIDE)%>%html_nodes(xpath = xpathToTableIDE)%>%html_table()%>% .[[1]]
 
+```
+
+
+## Limpieza del IDE
+
+Cada data (dataframe) debe tener las filas de países y los nombres de columnas. Veamos el caso del IDH:
+
+```{r}
+library(magrittr) # needed for pipe %>% 
+head(idh,10)%>%
+    rmarkdown::paged_table()
+```
+
+El Excel está desordenado. Vemos que los nombres de columnas están en la fila 4. 
+
+```{r}
+idh[4:10,]%>%
+    rmarkdown::paged_table()
+```
+
+Entonces:
+
+```{r}
+names(idh)=idh[4,]
+head(idh,10)%>%
+    rmarkdown::paged_table()
+```
+
+Note que la fila cinco indica fecha, pero solo necesitamos los datos desde la fila 8:
+
+```{r}
+idh=idh[-c(1:7),]
+
+head(idh,10)%>%
+    rmarkdown::paged_table()
+```
+
+Notemos que hay nombres de columnas sin valores:
 ```{r}
 names(idh)
 ```
-
-Los nombres de la data *demo* no son muy largos, con caracteres en español, y muchos espacios en blancos.
-
+Al revisar, sabemos que el primero es ranking y segundo es el nombre del país:
 ```{r}
-names(demo)
+names(idh)[1]='hdiRanking'
+names(idh)[2]='country'
+
+#quedemonos con lo necesario
+idh=idh[,c(1,2, seq(3,11,2))] # 2,3,5,7,...11
+
+#now
+head(idh,10)%>%
+    rmarkdown::paged_table()
 ```
 
-Por lo visto, hay que cambiar los nombres en ambas tablas.
-
-```{r}
-# en IDH
-## cambio total
-newNames=c('Pais','EsperanzaVida','EscolaridadDuracion','EscolaridadPromedio','PBI')
-names(idh)=newNames
-
-# en DEMO
-## Capitalizar
-library(stringr)
-names(demo)=str_to_title(names(demo))
-
-## sin tildes ni ñs.
-library(stringi)
-names(demo)=stri_trans_general(str = names(demo), 
-                               id = "Latin-ASCII")
-## sin espacios
-names(demo)=gsub(" ","",names(demo))
-```
-
--   **Valores en las celdas**: Por lo general, hay que asegurarse que no haya espacios en blanco ni al inicio ni al final de cada valor en una celda.
-
-```{r}
-idh[,]=lapply(idh[,], trimws,whitespace = "[\\h\\v]") 
-
-demo[,]=lapply(demo[,], trimws,whitespace = "[\\h\\v]") 
-```
-
-## Formateo
-
-Hablamos de formateo cuando buscamos que los valores de cada celda estén el correcto tipo de dato. Para ello debemos primero ver qué tipo ha sido asignado por R.
+Veamos los tipos de Datos
 
 ```{r}
 str(idh)
 ```
+Corrigiendo:
 
 ```{r}
-str(demo)
+idh[,-2]=lapply(idh[,-2],as.numeric)
+```
+El paso anterior produjo valores perdidos:
+
+```{r}
+idh[!complete.cases(idh),]%>%
+    rmarkdown::paged_table()
 ```
 
--   **Conversión a tipo numérico**: Vemos que muchos valores que deberian ser numéricos han sido reconocidos como texto. Normalmente eso sucede pues hay caracteres dentro del numero que evitan que se lea adecuadamente. Luego de esa corrección recién se puede cambiar el tipo.
+No hay nada relavante, entonces:
 
 ```{r}
-# eliminar coma en los miles:
-idh$PBI=gsub(',','',idh$PBI)
-# ahora a numerico
-idh[,-1]=lapply(idh[,-1], as.numeric)
-
-# cambiar coma en los decimales:
-demo[,-c(2,9)]=lapply(demo[,-c(2,9)],
-                      function(x){gsub(",",".",x)})
-# ahora a numerico
-demo[,-c(2,9)]=lapply(demo[,-c(2,9)], as.numeric)
-```
-
-Luego de pasar a tipo numérico, las celdas que no tenían un valor numérico adecuado se convirtieron en NAs. Aquí hay que revisar las filas donde eso se generó.
-
-```{r}
-idh[!complete.cases(idh),]
-```
-
-```{r}
-demo[!complete.cases(demo),]
-```
-
-A partir de lo visto, decidir si se puede completar los valores faltantes. Luego, ya nos quedamos con los datos completo.
-
-```{r}
-##
-idh[idh$Pais=='Camerún','EscolaridadDuracion']=13.1
-demo[demo$Puesto==48 & !is.na(demo$Puesto),'Pais']='Panama'
-
-##
 idh=idh[complete.cases(idh),]
-demo=demo[complete.cases(demo),]
 ```
 
--   **Caracteres de Alfabeto español**: Es preferible eliminarlos.
+Ahora pidamos descriptivos:
 
 ```{r}
-# sin tildes
-idh$Pais=stri_trans_general(str = idh$Pais, 
-                               id = "Latin-ASCII")
-
-demo[,c(2,9)]=lapply(demo[,c(2,9)],
-                     stri_trans_general,
-                     id = "Latin-ASCII") 
+summary(idh)
 ```
 
-## Merge
+## Limpieza del IDE
 
--   **Verificando qué falta en el campo clave**: El merge usa columnas comunes. Antes del merge definitivo hay que verificar si hay correcciones posible para que el merge no pierda tantas filas. 
+La tabla escrapeada normalmente viene con buena estructura. Veamos los nombres de columnas
+
+```{r}
+names(ide)
+```
+Quedémonos con las necesarias:
+
+```{r}
+ide=ide[,-c(2,6)]
+```
+
+Verifiquemos tipos de datos:
+
+```{r}
+str(ide)
+```
+Corrigiendo:
+
+```{r}
+ide[,-c(2,3)]=lapply(ide[,-c(2,3)], as.numeric)
+```
+
+De nuevo, vemos datos perdidos generados:
+
+
+```{r}
+ide[!complete.cases(ide),]%>%
+    rmarkdown::paged_table()
+```
+
+No hay nada que perder si eliminamos esas files, entonces:
+
+
+```{r}
+ide=ide[complete.cases(ide),]
+```
+
+
+
+
+
+# Merging
+
+El _merge_ requiere columnas en ambos lados que tengan la misma información: escrita de manera exacta. Preventivamente, eliminemos espacios antes y despues de cada valor de celda de las columnas _key_: 
+
+
+```{r}
+idh$country=trimws(idh$country,whitespace = "[\\h\\v]")
+ide$Country=trimws(ide$Country,whitespace = "[\\h\\v]")
+
+```
+
+**Verificando intersecciones**: El merge usa columnas comunes. Antes del merge definitivo hay que verificar si hay correcciones posible para que el merge no pierda tantas filas. 
 
 Una manera práctica para darnos cuenta que NO está coincidiendo en dos conjuntos es usar diferencia de conjuntos ^[Sí A y B son conjuntos, A−B serán los elementos que están en A pero que NO están en B, por ejemplo si A={1,2,3} y B={3,5}, entonces A−B={1,2}.]:
 
 ```{r}
-setdiff(demo$Pais,idh$Pais)
+# en ide$Country pero no en idh$country
+sort(setdiff(ide$Country,idh$country))
 ```
 
 De igual manera:
 
 ```{r}
-setdiff(idh$Pais,demo$Pais)
+# en idh$country pero no en ide$Country 
+sort(setdiff(idh$country,ide$Country))
 ```
 
-Se puede corroborar que sí hay valores que pueden ser corregidos.
+Se puede corroborar que sí hay valores que pueden ser corregidos. Hagamos los cambios en **idh**:
 
 ```{r}
-demo[demo$Pais=='Republica de China','Pais']='China'
-demo[demo$Pais=='R. Democratica del Congo','Pais']='Republica Democratica del Congo'
+idh[idh$country=='Bolivia (Plurinational State of)','country']='Bolivia'
+idh[idh$country=='Cabo Verde','country']='Cape Verde'
+idh[idh$country=='Czechia','country']='Czech Republic'
+idh[idh$country=='Congo (Democratic Republic of the)','country']='Democratic Republic of the Congo'
+idh[idh$country=='Timor-Leste','country']='East Timor'
+idh[idh$country=='Eswatini (Kingdom of)','country']='Eswatini'
+idh[idh$country=='Hong Kong, China (SAR)','country']='Hong Kong'
+idh[idh$country=='Iran (Islamic Republic of)','country']='Iran'
+idh[idh$country=="Côte d'Ivoire",'country']='Ivory Coast'
+idh[idh$country=="Lao People's Democratic Republic",'country']='Laos'
+idh[idh$country=="Moldova (Republic of)",'country']='Moldova'
+idh[idh$country=="Palestine, State of",'country']='Palestine'
+idh[idh$country=='Congo','country']='Republic of the Congo'
+idh[idh$country=='Russian Federation','country']='Russia'
+idh[idh$country=='Korea (Republic of)','country']='South Korea'
+idh[idh$country=='Syrian Arab Republic','country']='Syria'
+idh[idh$country=='Tanzania (United Republic of)','country']='Tanzania'
+idh[idh$country=='Türkiye','country']='Turkey'
+idh[idh$country=='Venezuela (Bolivarian Republic of)','country']='Venezuela'
+idh[idh$country=='Viet Nam','country']='Vietnam'
 ```
 
 Ahora si hay más comodidad para hacer el merge:
 
 ```{r}
-idhdemo=merge(idh,demo)
-head(idhdemo)
+idhdemo=merge(idh,ide, by.x = "country", by.y = 'Country')
+head(idhdemo)%>%
+    rmarkdown::paged_table()
 ```
 
-Tenemos un data frame que integra diversas variables que quieren medir conceptos complejos (latentes). Vemos cómo usamos el análisis factorial.
+Ajustemos sus nombres:
+
+```{r}
+# actual
+names(idhdemo)
+```
+```{r}
+# nuevos nombres
+newNames=c("hdi","hdiLife","hdiSchoolExpec","hdiMeanEduc","hdiGni",
+           'ideRanking','ideRegime','ide','ideElectoral','ideFunctioning','ideParticipation',
+           'ideCulture','ideLiberties')
+names(idhdemo)[c(3,4,5,6,7,8,9,10,11,12,13,14,15)]=newNames
+```
+
+
+
+Tenemos ya un data frame que integra diversas variables que quieren medir conceptos complejos (latentes). Vemos cómo usamos el análisis factorial.
+
+
 
 # Analisis Factorial Exploratorio (EFA)
 
-El análisis factorial exploratorio [@watkins_exploratory_2018], como su nombre indica, explora la data y nos entrega posibles factores que resúmen cada uno un conjunto de variables.
-
-Veamos los pasos que el EFA requiere:
-
-1.  Subsetear la data
+El análisis factorial exploratorio [@watkins_exploratory_2018], como su nombre indica, explora la data y nos entrega posibles factores que resumen cada uno un conjunto de variables. Seleccionemos la data que necesitamos:
 
 ```{r}
-dontselect=c("Pais","Puesto","Puntuacion",'Categoria')
-select=setdiff(names(idhdemo),dontselect) 
-theData=idhdemo[,select]
+names(idhdemo)
 ```
 
-2.  Calculo de matriz de correlación:
+Seleccionemos:
 
-```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
-# esta es:
+```{r}
+dontselect=c("country","hdiRanking","hdi",
+             "ideRanking","ideRegime","ide")
+select=setdiff(names(idhdemo),dontselect) 
+theData=idhdemo[,select]
+
+# usaremos:
+
+head(theData,10)%>%
+    rmarkdown::paged_table()
+```
+
+Calculemos las correlaciones entre todas las variables:
+```{r}
 library(polycor)
 corMatrix=polycor::hetcor(theData)$correlations
 ```
 
-3.  Explorar correlaciones:
+El objeto _corMatrix_ guarda las correlaciones entre todas las variables:
 
-La Figura \@ref(fig:coorPlot) muestra las correlaciones entre todas las variables a utilizar:
+```{r}
+round(corMatrix,2)
+```
+
+La Figura \@ref(fig:coorPlot) grafica las correlaciones :
 
 ```{r coorPlot, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE, fig.cap="Matriz de Correlaciones"}
-
 library(ggcorrplot)
 
 ggcorrplot(corMatrix)
 ```
 
-Si puedes ver bloques correlacionados en la Figura \@ref(fig:coorPlot), hay esperanza de un buen analisis factorial.
+Si puedes ver bloques de colores en la Figura \@ref(fig:coorPlot), que esas variables representen algunos factores.
 
-4.  Verificar si los datos permiten factorizar:
+
+Veamos los pasos que el EFA requiere:
+
+1.  Verificar si los datos permiten factorizar:
 
 ```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
 library(psych)
 psych::KMO(corMatrix) 
 ```
 
-5.  Verificar si la matriz de correlaciones es adecuada
+2.  Verificar si la matriz de correlaciones es adecuada
 
 Aqui hay dos pruebas:
 
@@ -282,7 +373,7 @@ library(matrixcalc)
 is.singular.matrix(corMatrix)
 ```
 
-6.  Determinar en cuantos factores o variables latentes podríamos redimensionar la data: En este caso, la función *fa.parallel* nos dará la sugerencia:
+3.  Determinar en cuantos factores o variables latentes podríamos redimensionar la data: En este caso, la función *fa.parallel* nos dará la sugerencia:
 
 ```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
 fa.parallel(theData, fa = 'fa',correct = T,plot = F)
@@ -290,7 +381,7 @@ fa.parallel(theData, fa = 'fa',correct = T,plot = F)
 
 Se sugieren 2, lo esperado, sigamos.
 
-7.  Redimensionar a número menor de factores
+4.  Redimensionar a número menor de factores
 
 -   Resultado inicial:
 
@@ -319,178 +410,85 @@ Cuando logramos que cada variable se vaya a un factor, tenemos una *estructura s
 fa.diagram(resfa,main = "Resultados del EFA")
 ```
 
-8.  Evaluando Resultado obtenido:
+5.  Evaluando Resultado obtenido:
 
--   ¿Qué variables aportaron mas a los factores?
+-   ¿Qué variables aportaron más a los factores?
 
 ```{r}
 sort(resfa$communality)
 ```
 
--   ¿Qué variables contribuyen a más de un factor?
+-   ¿Qué variables contribuyen a la construcción de más de un factor?
 
 ```{r}
 sort(resfa$complexity)
 ```
 
-9.  Valores proyectados: Podemos calcular dos *indices* que resuman los dos factores encontrados.
+## Obtención de índices
+
+Podemos calcular dos *indices* que resuman los dos factores encontrados.
 
 ```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
-library(magrittr)
 as.data.frame(resfa$scores)%>%head()
 ```
 
-Les daremos por nombre 'demos_efa' y 'desahu_efa' a esas dos columnas. Dado que tenemos el indice de democracia en la data original, comparémoslo con el recién calculado, via el *scatterplot* de la Figura \@ref(fig:scatterEFAdemo1).
+Les daremos por nombre 'ide_efa' y 'idh_efa' a esas dos columnas. Dado que tenemos el indice de democracia en la data original, comparémoslo con el recién calculado, via el *scatterplot* de la Figura \@ref(fig:scatterEFA).
 
-```{r scatterEFAdemo1, warning=FALSE, message=FALSE,fig.cap="Comparando Indice de Democracia con el Score obtenido en EFA"}
+```{r scatterEFA, warning=FALSE, message=FALSE,fig.cap="Comparando Indice de Democracia con el Score obtenido en EFA"}
 
-idhdemo$demos_efa=resfa$scores[,1]
-idhdemo$desahu_efa=resfa$scores[,2]
+idhdemo$ide_efa=resfa$scores[,1]
+idhdemo$idh_efa=resfa$scores[,2]
 
-ggplot(data=idhdemo,aes(x=Puntuacion,y=demos_efa)) + geom_point() + theme_minimal() + labs(x="Indice de Democracia (original)", y="Indice de Democracia EFA")
+ggplot(data=idhdemo,aes(x=ide,y=ide_efa)) + geom_point() + theme_minimal() + labs(x="Indice de Democracia (original)", y="Indice de Democracia EFA")
 
 ```
 
-Nota que los rangos de los valores en la Figura \@ref(fig:scatterEFAdemo1) no son los mismos. La Figura \@ref(fig:scatterEFAdemo2) muestra tales cambios.
+Nota que los rangos de los valores en la Figura \@ref(fig:scatterEFA) no son los mismos. Podemos cambiar tales rangos:
 
-```{r scatterEFAdemo2,fig.cap="Comparación Indice de Democracia con Score EFA con rangos coincidentes"}
+```{r normalizando, message=FALSE}
+# normalizando
 library(BBmisc)
-efa_scores_ok=normalize(resfa$scores, 
+efa_scores_norm=normalize(resfa$scores, 
                        method = "range", 
                        margin=2, # by column
                        range = c(0, 10))
 
-idhdemo$demos_efa_ok=efa_scores_ok[,1]
-idhdemo$desahu_efa_ok=efa_scores_ok[,2]
-
-ggplot(data=idhdemo,aes(x=Puntuacion,y=demos_efa_ok)) + geom_point() + theme_minimal() + labs(x="Indice de Democracia (original)", y="Indice de Democracia EFA (cambiado)")
+# nuevas variables
+idhdemo$ide_efa_norm=efa_scores_norm[,1]
+idhdemo$idh_efa_norm=efa_scores_norm[,2]
 ```
 
-# Análisis Factorial Confirmatorio
 
-El análisis factorial confirmatorio (CFA) lo usamos cuando ya tenemos una teoría y queremos confirmar que los datos pueden reflejar los conceptos o variables latentes asumidas [@costa_confirmatory_nodate,@orcan_exploratory_2018].
+La Figura \@ref(fig:scatterEFAideNorm) muestra las nuevas variables para IDE.
+
+```{r scatterEFAideNorm,fig.cap="Comparación Indice de Democracia con Score EFA con rangos coincidentes"}
+
+# graficando
+
+ggplot(data=idhdemo,aes(x=ide,y=ide_efa_norm)) + geom_point() + theme_minimal() + labs(x="Indice de Democracia (original)", y="Indice de Democracia EFA (cambiado)")
+```
+
+La Figura \@ref(fig:scatterEFAidhNorm) muestra las nuevas variables para IDH.
+
+
+```{r scatterEFAidhNorm,fig.cap="Comparación Indice de Desarrollo Humano con Score EFA con rangos coincidentes"}
+ggplot(data=idhdemo,aes(x=hdi,y=idh_efa_norm)) + geom_point() + theme_minimal() + labs(x="Indice de Desarrollo Humano (original)", y="Indice de Desarrollo Humano EFA (cambiado)")
+```
+
+Queda a  esta altura preguntarse:
+
+
+
+* ¿Qué ventaja hay entre calcular un índice como un resultado aritmético simple a partir de los indicadores versus usar análisis factorial con el mismo propósito?
+
+* Finalmente, nota este resultado:
 
 ```{r}
-modelCFA <- ' democracia  =~ ProcesoElectoralyPluralismo + FuncionamientodelGobierno + Participacionpolitica + Culturapolitica + Derechosciviles
-
-desaHumano=~EsperanzaVida+EscolaridadDuracion+EscolaridadPromedio+PBI'
+cor(idhdemo$ide_efa_norm,idhdemo$idh_efa_norm)
 ```
-
-Ahora vemos qué arroja el modelo:
-
-```{r}
-# normalizar las variables:
-theDataNorm=scale(theData)
-
-library(lavaan)
-cfa_fit <- cfa(modelCFA, data=theDataNorm, 
-           std.lv=TRUE,  
-           missing="fiml")
-summary(cfa_fit)
-```
-
-Averigüemos qué tan bien salió el modelo:
-
-```{r}
-allParamCFA=parameterEstimates(cfa_fit,standardized = T)
-allFitCFA=as.list(fitMeasures(cfa_fit))
-```
-
--   El ChiSquare es NO significativo? (p_value debe ser mayor a 0.05 para que sea bueno)
-
-```{r}
-
-allFitCFA[c("chisq", "df", "pvalue")] # pvalue>0.05
-```
-
--   El Índice Tucker Lewis es mayor a 0.9?
-
-```{r,echo=TRUE}
-allFitCFA$tli 
-```
-
--   La Raíz del error cuadrático medio de aproximación es menor a 0.05?
-
-```{r,echo=TRUE}
-allFitCFA[c('rmsea.ci.lower','rmsea' ,'rmsea.ci.upper')] 
-```
-
-Ya sabemos que las latentes no cumplen a cabalidad los requisitos, pero aún así calculamos las puntuaciones obtenidas por esta vía.
-
-```{r}
-scorescfa=normalize(lavPredict(cfa_fit),
-                    method = "range", 
-                    margin=2, # by column
-                    range = c(0, 10))
-
-idhdemo$demos_cfa_ok=scorescfa[,1]
-idhdemo$desahu_cfa_ok=scorescfa[,2]
-```
-
-Veamos que tanto se parece el score obtenido via CFA con la puntuación original en la Figura \@ref(fig:scatterCFAdemo).
-
-```{r scatterCFAdemo,fig.cap="Comparación Indice de Democracia con Score CFA con puntuación original"}
-ggplot(data=idhdemo,aes(x=Puntuacion,y=demos_cfa_ok)) + geom_point() + theme_minimal() + labs(x="Indice de Democracia (original)", y="Indice de Democracia CFA (cambiado)")
-
-```
-
-Podemos ver los resultados del CFA en la Figura \@ref(fig:cfaPlot).
-
-```{r cfaPlot, fig.cap="Representación del CFA - Democracia y IDH"}
-library(lavaanPlot)
-lavaanPlot(model = cfa_fit, node_options = list(shape = "box", fontname = "Helvetica"), edge_options = list(color = "grey"), coefs = T)
-
-```
-
-Podríamos hacer una regresión donde una de estas latentes es la dependiente y la otra la independiente. El siguiente paso en esta línea sería usar un modelo de **Ecuaciones Estructurales**. Primero usemos la regresión convencional, encontrando estos resultados:
-
-```{r}
-hipotesis=formula(demos_cfa_ok~desahu_cfa_ok)
-reg1=lm(hipotesis, data=idhdemo)
-summary(reg1)
-```
-
-Ahora, usando variables latentes en una Ecuación Estructural.
-
-```{r}
-
-modelSEM <- ' democracia  =~ ProcesoElectoralyPluralismo + FuncionamientodelGobierno + Participacionpolitica + Culturapolitica + Derechosciviles
-
-desaHumano=~EsperanzaVida+EscolaridadDuracion+EscolaridadPromedio+PBI
-
-democracia~desaHumano'
-
-```
-
-Los resultados son:
-
-```{r, warning=FALSE}
-sem_fit <- sem(modelSEM, 
-              data=theDataNorm)
-summary(sem_fit)
-```
-
-El resultado podemos verlo de manera gráfica en la Figura \@ref(fig:semPlot1).
-
-```{r semPlot1, fig.cap="SEM con Democracia como dependiente e IDH como independiente"}
-
-lavaanPlot(model = sem_fit,
-           node_options = list(shape = "box",
-                               fontname = "Helvetica"),
-           edge_options = list(color = "grey"), coefs = T,stand = T)
-```
-
-El mismo resultado podemos verlo de manera gráfica usando otra la biblioteca *semPlot* en la Figura \@ref(fig:semPlot2).
+¿Qué crees que esto significa? ¿Qué relación tiene el Análisis factorial con la regresión? ¿Puede servir de algo en particular?
 
 
-```{r semPlot2, fig.cap="SEM alternativo con Democracia como dependiente e IDH como independiente"}
-library(semPlot)
-semPaths(sem_fit, residuals=F,
-         sizeMan=7,sizeLat=12,
-         what = "std",
-         nCharNodes=10,
-         posCol=c("skyblue4", "red"),
-         edge.color="orange",
-         edge.label.cex=1.2,layout="circle2")
-```
+
+
 # Referencias
