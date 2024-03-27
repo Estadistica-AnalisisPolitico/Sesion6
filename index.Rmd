@@ -8,20 +8,22 @@ output:
 bibliography: references.bib
 ---
 
+<img src="https://imgur.com/T5KQ7qg.jpg" width="400"/>
+
 <center>
 
-<img src="https://github.com/Estadistica-AnalisisPolitico/Images/raw/main/LogoEAP.png" width="500"/>
+<h1>Estadística para el Análisis Político 2</h1>
 
 </center>
 
-Profesor: <a href="http://www.pucp.edu.pe/profesor/jose-manuel-magallanes/" target="_blank">Dr. José Manuel MAGALLANES REYES, Ph.D.</a> <br>
+<br>
 
--   Profesor del Departamento de Ciencias Sociales, Sección de Ciencia Política y Gobierno.
+Profesor:[Dr. José Manuel MAGALLANES REYES, Ph.D](http://www.pucp.edu.pe/profesor/jose-manuel-magallanes/" target="_blank) <br>
 
--   [Oficina 105](https://goo.gl/maps/xuGeG6o9di1i1y5m6) - Edificio CISEPA / ECONOMIA / CCSS
+-   Profesor Principal del Departamento de Ciencias Sociales, Sección de Ciencia Política y Gobierno.
 
+-   [Oficina 223](https://goo.gl/maps/xuGeG6o9di1i1y5m6) - Edificio CISEPA / ECONOMIA / CCSS
 -   Telefono: (51) 1 - 6262000 anexo 4302
-
 -   Correo Electrónico: [jmagallanes\@pucp.edu.pe](mailto:jmagallanes@pucp.edu.pe)
 
 <a id='beginning'></a>
@@ -47,6 +49,10 @@ Análisis de Variables Latentes (I)
 </center>
 
 ------------------------------------------------------------------------
+
+```{r klippy, echo=FALSE, include=TRUE}
+klippy::klippy(position = c('top', 'right'))
+```
 
 Muchas veces queremos saber si algun conjunto de variables representa algun *concepto*, al cual se le denomina técnicamente *variable latente*. Las técnicas son variadas, pero en esta unidad veremos análisis factorial exploratorio, y en la próxima el confirmatorio para tratar de *reducir* varias variables en otra u otras más simples.
 
@@ -79,7 +85,7 @@ El IDH está disponible como un archivo en Excel que descargaremos desde el link
 rm(list = ls())
 library(rio)
 
-linkToFileIDH="https://hdr.undp.org/sites/default/files/2021-22_HDR/HDR21-22_Statistical_Annex_HDI_Table.xlsx"
+linkToFileIDH="https://hdr.undp.org/sites/default/files/2023-24_HDR/HDR23-24_Statistical_Annex_HDI_Table.xlsx"
 
 # queda en objeto 'idh'
 idh=import(linkToFileIDH)
@@ -92,13 +98,13 @@ El IDE está en una tabla en Wikipedia, lo que requiere _scrapping_:
 library(rvest)
 
 linkToWebIDE="https://en.wikipedia.org/wiki/The_Economist_Democracy_Index"
-xpathToTableIDE='//*[@id="mw-content-text"]/div[1]/table[6]'
+xpathToTableIDE='//*[@id="mw-content-text"]/div[1]/table[4]'
 ide <- read_html(linkToWebIDE)%>%html_nodes(xpath = xpathToTableIDE)%>%html_table()%>% .[[1]]
 
 ```
 
 
-## Limpieza del IDE
+## Limpieza del IDH
 
 Cada data (dataframe) debe tener las filas de países y los nombres de columnas. Veamos el caso del IDH:
 
@@ -136,13 +142,33 @@ Notemos que hay nombres de columnas sin valores:
 ```{r}
 names(idh)
 ```
-Al revisar, sabemos que el primero es ranking y segundo es el nombre del país:
+Estos faltan:
+
 ```{r}
 names(idh)[1]='hdiRanking'
 names(idh)[2]='country'
+```
+
+
+Veamos con los no perdidos:
+```{r}
+names(idh)[complete.cases(names(idh))]
+```
+Estos quedan:
+
+```{r}
+columnasOK=names(idh)[complete.cases(names(idh))]
+idh=idh[,columnasOK]
+head(idh)
+```
+
+
+Aun hay que borrar otros que no necesitamos:
+```{r}
+
 
 #quedemonos con lo necesario
-idh=idh[,c(1,2, seq(3,11,2))] # 2,3,5,7,...11
+idh=idh[,-c(4,9,10)]
 
 #now
 head(idh,10)%>%
@@ -290,9 +316,8 @@ names(idhdemo)
 ```{r}
 # nuevos nombres
 newNames=c("hdi","hdiLife","hdiSchoolExpec","hdiMeanEduc","hdiGni",
-           'ideRanking','ideRegime','ide','ideElectoral','ideFunctioning','ideParticipation',
-           'ideCulture','ideLiberties')
-names(idhdemo)[c(3,4,5,6,7,8,9,10,11,12,13,14,15)]=newNames
+           'ideRanking','ideRegime','ide','ideElectoral','ideFunctioning','ideParticipation','ideCulture','ideLiberties')
+names(idhdemo)[3:15]=newNames
 
 #write.csv(idhdemo,"idhdemo.csv",row.names = F)
 ```
