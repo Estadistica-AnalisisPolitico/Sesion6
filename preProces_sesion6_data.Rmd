@@ -1,0 +1,272 @@
+---
+title: ""
+output:
+  html_document:
+    df_print: paged
+---
+
+# Pre Procesamiento para Sesion 6
+
+Nosotros queremos juntar dos conjuntos de datos. Esto significa:
+
+1. Hay que juntar (_merge_) ambos conjuntos de datos. Para ello necesitamos que ambas datas tengan las mismas unidades de análisis (en una o más columnas), esas columnas se llaman las _claves_ (keys).
+
+2. El merge puede perder filas, pues una misma unidad de análisis puede haberse escrito de manera diferente en ambas datas. Eso requiere limpieza de data.
+
+3. Las datas viene de diferentes fuentes, y tipos de archivos, lo cual requiere subsetear y limpiar hasta que cada data solo tenga las filas apropiadas.
+
+
+## Carga de datos
+
+El IDH está disponible como un archivo en Excel que descargaremos desde el link respectivo:
+
+```{r, message=FALSE}
+rm(list = ls())
+library(rio)
+
+linkToFileIDH="https://hdr.undp.org/sites/default/files/2023-24_HDR/HDR23-24_Statistical_Annex_HDI_Table.xlsx"
+
+# queda en objeto 'idh'
+idh=import(linkToFileIDH)
+```
+
+
+El IDE está en una tabla en Wikipedia, lo que requiere _scrapping_:
+
+```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
+library(rvest)
+
+linkToWebIDE="https://en.wikipedia.org/wiki/The_Economist_Democracy_Index"
+xpathToTableIDE='//*[@id="mw-content-text"]/div[1]/table[5]'
+ide <- read_html(linkToWebIDE)%>%html_nodes(xpath = xpathToTableIDE)%>%html_table()%>% .[[1]]
+
+```
+
+
+## Limpieza del IDH
+
+Cada data (dataframe) debe tener las filas de países y los nombres de columnas. Veamos el caso del IDH:
+
+```{r}
+library(magrittr) # needed for pipe %>% 
+head(idh,10)%>%
+    rmarkdown::paged_table()
+```
+
+El Excel está desordenado. Vemos que los nombres de columnas están en las filas 4 y 5. 
+
+```{r}
+idh[4:10,]%>%
+    rmarkdown::paged_table()
+```
+
+Entonces:
+
+```{r}
+names(idh)=idh[4,]
+head(idh,10)%>%
+    rmarkdown::paged_table()
+```
+
+Note que la fila cinco indica fecha, pero solo necesitamos los datos desde la fila 8:
+
+```{r}
+idh=idh[-c(1:7),]
+
+head(idh,10)%>%
+    rmarkdown::paged_table()
+```
+
+Notemos que hay nombres de columnas sin valores:
+```{r}
+names(idh)
+```
+Estos faltan:
+
+```{r}
+names(idh)[1]='hdiRanking'
+names(idh)[2]='country'
+```
+
+
+Veamos de quedarnos con los no perdidos:
+```{r}
+names(idh)[complete.cases(names(idh))]
+```
+Estos quedan:
+
+```{r}
+columnasOK=names(idh)[complete.cases(names(idh))]
+idh=idh[,columnasOK]
+head(idh)
+```
+
+
+Aun hay que borrar otros que no necesitamos:
+```{r}
+
+
+#quedemonos con lo necesario
+idh=idh[,-c(4,9,10)]
+
+#now
+head(idh,10)%>%
+    rmarkdown::paged_table()
+```
+
+Veamos los tipos de Datos
+
+```{r}
+str(idh)
+```
+Formateando:
+
+```{r}
+idh[,-2]=lapply(idh[,-2],as.numeric)
+```
+El paso anterior produjo valores perdidos:
+
+```{r}
+idh[!complete.cases(idh),]%>%
+    rmarkdown::paged_table()
+```
+
+No hay nada relevante, entonces:
+
+```{r}
+idh=idh[complete.cases(idh),]
+```
+
+Ahora pidamos descriptivos:
+
+```{r}
+summary(idh)
+```
+
+## Limpieza del IDE
+
+La tabla escrapeada normalmente viene con buena estructura. Veamos los nombres de columnas
+
+```{r}
+names(ide)
+```
+Quedémonos con las necesarias:
+
+```{r}
+ide=ide[,-c(2,6)]
+```
+
+Verifiquemos tipos de datos:
+
+```{r}
+str(ide)
+```
+Corrigiendo:
+
+```{r}
+ide[,-c(2,3)]=lapply(ide[,-c(2,3)], as.numeric)
+```
+
+De nuevo, vemos datos perdidos generados:
+
+
+```{r}
+ide[!complete.cases(ide),]%>%
+    rmarkdown::paged_table()
+```
+
+No hay nada que perder si eliminamos esas files, entonces:
+
+
+```{r}
+ide=ide[complete.cases(ide),]
+```
+
+
+
+
+
+# Merging
+
+El _merge_ requiere columnas en ambos lados que tengan la misma información: escrita de manera exacta. Preventivamente, eliminemos espacios antes y despues de cada valor de celda de las columnas _key_: 
+
+
+```{r}
+idh$country=trimws(idh$country,whitespace = "[\\h\\v]")
+ide$Country=trimws(ide$Country,whitespace = "[\\h\\v]")
+
+```
+
+**Verificando intersecciones**: El merge usa columnas comunes. Antes del merge definitivo hay que verificar si hay correcciones posible para que el merge no pierda tantas filas. 
+
+Una manera práctica para darnos cuenta que NO está coincidiendo en dos conjuntos es usar diferencia de conjuntos ^[Sí A y B son conjuntos, A−B serán los elementos que están en A pero que NO están en B, por ejemplo si A={1,2,3} y B={3,5}, entonces A−B={1,2}.]:
+
+```{r}
+# en ide$Country pero no en idh$country
+sort(setdiff(ide$Country,idh$country))
+```
+
+De igual manera:
+
+```{r}
+# en idh$country pero no en ide$Country 
+sort(setdiff(idh$country,ide$Country))
+```
+
+Se puede corroborar que sí hay valores que pueden ser corregidos. Hagamos los cambios en **idh**:
+
+```{r}
+idh[idh$country=='Bolivia (Plurinational State of)','country']='Bolivia'
+idh[idh$country=='Cabo Verde','country']='Cape Verde'
+idh[idh$country=='Czechia','country']='Czech Republic'
+idh[idh$country=='Congo (Democratic Republic of the)','country']='Democratic Republic of the Congo'
+idh[idh$country=='Eswatini (Kingdom of)','country']='Eswatini'
+idh[idh$country=='Hong Kong, China (SAR)','country']='Hong Kong'
+idh[idh$country=='Iran (Islamic Republic of)','country']='Iran'
+idh[idh$country=="Côte d'Ivoire",'country']='Ivory Coast'
+idh[idh$country=="Lao People's Democratic Republic",'country']='Laos'
+idh[idh$country=="Moldova (Republic of)",'country']='Moldova'
+idh[idh$country=="Palestine, State of",'country']='Palestine'
+idh[idh$country=='Congo','country']='Republic of the Congo'
+idh[idh$country=='Russian Federation','country']='Russia'
+idh[idh$country=='Korea (Republic of)','country']='South Korea'
+idh[idh$country=='Syrian Arab Republic','country']='Syria'
+idh[idh$country=='Tanzania (United Republic of)','country']='Tanzania'
+idh[idh$country=='Türkiye','country']='Turkey'
+idh[idh$country=='Venezuela (Bolivarian Republic of)','country']='Venezuela'
+idh[idh$country=='Viet Nam','country']='Vietnam'
+```
+
+Ahora si hay más comodidad para hacer el merge:
+
+```{r}
+idhdemo=merge(idh,ide, by.x = "country", by.y = 'Country')
+idhdemo%>%
+    rmarkdown::paged_table()
+```
+
+Ajustemos sus nombres:
+
+```{r}
+# actual
+names(idhdemo)
+```
+```{r}
+# nuevos nombres
+newNames=c("hdi","hdiLife","hdiSchoolExpec","hdiMeanEduc","hdiGni",
+           'ideRanking','ideRegime','ide','ideElectoral','ideFunctioning','ideParticipation','ideCulture','ideLiberties')
+names(idhdemo)[3:15]=newNames
+
+
+```
+
+
+
+Tenemos ya un data frame que integra diversas variables que quieren medir conceptos complejos (latentes). Guardemos los datos mergeados:
+
+```{r}
+write.csv(idhdemo,"idhdemo.csv",row.names = F)
+```
+
+
+...y veamos cómo se les usará en el [análisis factorial](https://estadistica-analisispolitico.github.io/Sesion6/).
