@@ -98,7 +98,7 @@ El IDE está en una tabla en Wikipedia, lo que requiere _scrapping_:
 library(rvest)
 
 linkToWebIDE="https://en.wikipedia.org/wiki/The_Economist_Democracy_Index"
-xpathToTableIDE='//*[@id="mw-content-text"]/div[1]/table[4]'
+xpathToTableIDE='//*[@id="mw-content-text"]/div[1]/table[5]'
 ide <- read_html(linkToWebIDE)%>%html_nodes(xpath = xpathToTableIDE)%>%html_table()%>% .[[1]]
 
 ```
@@ -192,7 +192,7 @@ idh[!complete.cases(idh),]%>%
     rmarkdown::paged_table()
 ```
 
-No hay nada relavante, entonces:
+No hay nada relevante, entonces:
 
 ```{r}
 idh=idh[complete.cases(idh),]
@@ -281,7 +281,6 @@ idh[idh$country=='Bolivia (Plurinational State of)','country']='Bolivia'
 idh[idh$country=='Cabo Verde','country']='Cape Verde'
 idh[idh$country=='Czechia','country']='Czech Republic'
 idh[idh$country=='Congo (Democratic Republic of the)','country']='Democratic Republic of the Congo'
-idh[idh$country=='Timor-Leste','country']='East Timor'
 idh[idh$country=='Eswatini (Kingdom of)','country']='Eswatini'
 idh[idh$country=='Hong Kong, China (SAR)','country']='Hong Kong'
 idh[idh$country=='Iran (Islamic Republic of)','country']='Iran'
@@ -303,7 +302,7 @@ Ahora si hay más comodidad para hacer el merge:
 
 ```{r}
 idhdemo=merge(idh,ide, by.x = "country", by.y = 'Country')
-head(idhdemo)%>%
+idhdemo%>%
     rmarkdown::paged_table()
 ```
 
